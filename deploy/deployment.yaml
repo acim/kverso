@@ -1,0 +1,32 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  labels:
+    run: kverso
+  name: kverso
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      run: kverso
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 1
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        run: kverso
+    spec:
+      serviceAccountName: kverso
+      containers:
+      - args:
+        - --namespace=default
+        image: ablab/kverso
+        imagePullPolicy: Always
+        name: kverso
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      terminationGracePeriodSeconds: 30
