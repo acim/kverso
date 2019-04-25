@@ -3,6 +3,9 @@ package registry
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/coreos/go-semver/semver"
+	"github.com/docker/distribution/reference"
+	"github.com/pkg/errors"
 	"net/http"
 	"net/url"
 	"path"
@@ -13,34 +16,37 @@ import (
 type Client struct {
 	baseURL string
 	image   string
+	tag     string
 	auth    bool
 }
 
 // NewClient ...
-func NewClient(image string) *Client {
-	parts := strings.Split(image, ":")
-	image = parts[0]
-	c := &Client{}
-	switch strings.Count(image, "/") {
-	case 0:
-		c.baseURL = "https://registry.hub.docker.com"
-		c.image = path.Join("library", image)
-		c.auth = true
-	case 1:
-		c.baseURL = "https://registry.hub.docker.com"
-		c.image = image
-		c.auth = true
-	default:
-		ut, _ := url.Parse("https://" + image)
-		if ut.Host == "docker.io" {
-			ut.Host = "registry.hub.docker.com"
-			c.auth = true
-		}
-		c.baseURL = ut.Scheme + "://" + ut.Host
-		c.image = strings.TrimPrefix(ut.Path, "/")
+func NewClient(image string) (*Client, error) {
+	parsed, err := reference.ParseAnyReference(image)
+	if err != nil {
+		return nil, err
 	}
 
-	return c
+	parts := strings.Split(parsed.String(), ":")
+	u, err := url.Parse("https://" + parts[0])
+	if err != nil {
+		return nil, err
+	}
+
+	c := &Client{
+		image: strings.TrimPrefix(u.Path, "/"),
+	}
+	if len(parts) > 1 {
+		c.tag = parts[1]
+	}
+	if u.Host == "docker.io" {
+		u.Host = "registry.hub.docker.com"
+		c.auth = true
+	}
+	u.Path = ""
+	c.baseURL = u.String()
+
+	return c, nil
 }
 
 // Tags ...
@@ -56,7 +62,7 @@ func (c *Client) Tags() ([]string, error) {
 	if c.auth {
 		token, err := c.token()
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "auth failed")
 		}
 		req.Header.Add("Authorization", "Bearer "+token)
 	}
@@ -77,18 +83,36 @@ func (c *Client) Tags() ([]string, error) {
 		return nil, err
 	}
 
-	return tags.Tags, nil
+	v, err := semver.NewVersion(strings.TrimPrefix(c.tag, "v"))
+	if err != nil {
+		return tags.Tags, nil
+	}
+
+	ts := []string{}
+	for _, t := range tags.Tags {
+		vn, err := semver.NewVersion(strings.TrimPrefix(t, "v"))
+		if err != nil {
+			continue
+		}
+		if v.LessThan(*vn) {
+			ts = append(ts, t)
+		}
+	}
+
+	return ts, nil
 }
 
 func (c *Client) token() (string, error) {
-	resp, err := http.Get(fmt.Sprintf("https://auth.docker.io/token?service=registry.docker.io&scope=repository:%s:pull", c.image))
+	url := fmt.Sprintf("https://auth.docker.io/token?service=registry.docker.io&scope=repository:%s:pull", c.image)
+	fmt.Println("Auth URL: ", url)
+	resp, err := http.Get(url)
 	if err != nil {
 		return "", err
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("status code %d", resp.StatusCode)
+		return "", fmt.Errorf("auth status code %d", resp.StatusCode)
 	}
 
 	auth := &auth{}

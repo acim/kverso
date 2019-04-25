@@ -38,13 +38,33 @@ func handler(c *kubernetes.Clientset) http.Handler {
 			w.Write([]byte("Pod: " + p.ObjectMeta.Name + "<br>"))
 			for _, cs := range p.Spec.Containers {
 				w.Write([]byte("Container: " + cs.Name + " Image: " + cs.Image + "<br>"))
-				client := registry.NewClient(cs.Image)
-				tags, _ := client.Tags()
-				w.Write([]byte("Available tags: " + strings.Join(tags, ", ")))
+				client, err := registry.NewClient(cs.Image)
+				if err != nil {
+					w.Write([]byte("Error: " + err.Error()))
+					continue
+				}
+				tags, err := client.Tags()
+				if err != nil {
+					w.Write([]byte("Error: " + err.Error()))
+					continue
+				}
+				w.Write([]byte("Available tags: " + strings.Join(tags, ", ") + "<br>"))
 			}
 			for _, ics := range p.Spec.InitContainers {
 				w.Write([]byte("Init container: " + ics.Name + " Image: " + ics.Image + "<br>"))
+				client, err := registry.NewClient(ics.Image)
+				if err != nil {
+					w.Write([]byte("Error: " + err.Error()))
+					continue
+				}
+				tags, err := client.Tags()
+				if err != nil {
+					w.Write([]byte("Error: " + err.Error()))
+					continue
+				}
+				w.Write([]byte("Available tags: " + strings.Join(tags, ", ") + "<br>"))
 			}
+			w.Write([]byte("<br>"))
 		}
 	})
 }
