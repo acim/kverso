@@ -58,11 +58,11 @@ func (c *Client) Pods() ([]Pod, error) {
 		}
 
 		for _, status := range pod.Status.ContainerStatuses {
-			pods[i].Containers[status.Name].Digest = strings.SplitAfterN(status.ImageID, ":", 3)[2]
+			pods[i].Containers[status.Name].Digest = strings.SplitN(status.ImageID, ":", 3)[2]
 		}
 
 		for _, status := range pod.Status.InitContainerStatuses {
-			pods[i].InitContainers[status.Name].Digest = strings.SplitAfterN(status.ImageID, ":", 3)[2]
+			pods[i].InitContainers[status.Name].Digest = strings.SplitN(status.ImageID, ":", 3)[2]
 		}
 	}
 

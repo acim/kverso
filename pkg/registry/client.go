@@ -2,10 +2,12 @@ package registry
 
 import (
 	"net/url"
+	"regexp"
 	"strings"
 	"sync"
 
 	"github.com/docker/distribution/reference"
+	"github.com/hashicorp/go-version"
 	"github.com/nokia/docker-registry-client/registry"
 )
 
@@ -51,6 +53,53 @@ func (c *Client) Tags(image string) ([]string, string, error) {
 	return tags, info.tag, nil
 }
 
+// FilteredTags returns slice of available tags that look similar to the currect tag.
+func (c *Client) FilteredTags(image string) ([]string, string, error) {
+	tags, currTag, err := c.Tags(image)
+	if err != nil {
+		return nil, "", err
+	}
+
+	t := reDigit.ReplaceAllString(currTag, "\\d")
+	t = reDot.ReplaceAllString(t, "\\.")
+	r, err := regexp.Compile("^" + t + "$")
+	if err != nil {
+		return nil, "", err
+	}
+
+	var fTags []string
+	for _, tag := range tags {
+		if r.Match([]byte(tag)) {
+			fTags = append(fTags, tag)
+		}
+	}
+
+	currV, err := version.NewVersion(currTag)
+	if err != nil {
+		var ffTags []string
+		for _, tag := range fTags {
+			if tag > currTag {
+				ffTags = append(ffTags, tag)
+			}
+		}
+		return ffTags, currTag, nil
+	}
+
+	var ffTags []string
+	for _, tag := range fTags {
+		v, err := version.NewVersion(tag)
+		if err != nil {
+			continue
+		}
+		if currV.LessThan(v) {
+			ffTags = append(ffTags, tag)
+		}
+	}
+
+	return ffTags, currTag, nil
+
+}
+
 // Digest returns digest of the image.
 func (c *Client) Digest(image string) (string, error) {
 	info, err := parseImage(image)
@@ -72,9 +121,10 @@ func (c *Client) Digest(image string) (string, error) {
 		return "", err
 	}
 
-	c.digests.Store(info.registryURL+info.image, string(digest))
+	d := strings.SplitN(string(digest), ":", 2)[1]
+	c.digests.Store(info.registryURL+info.image, d)
 
-	return string(digest), nil
+	return d, nil
 }
 
 func (c *Client) registry(url string) (*registry.Registry, error) {
@@ -126,3 +176,6 @@ type info struct {
 	image       string
 	tag         string
 }
+
+var reDigit = regexp.MustCompile(`\d`)
+var reDot = regexp.MustCompile(`\.`)

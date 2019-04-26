@@ -16,6 +16,7 @@ kubectl port-forward pod/kverso-name 3000:3000
 
 Point your browser to localhost:3000
 
-## TODO
+## Think about using
 
-Think about using https://github.com/docker/distribution/blob/master/registry/client/repository.go
+https://github.com/docker/distribution/blob/master/registry/client/repository.go
+https://github.com/mcuadros/go-version
