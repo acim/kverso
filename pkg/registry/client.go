@@ -6,7 +6,7 @@ import (
 	"sync"
 
 	"github.com/docker/distribution/reference"
-	"github.com/heroku/docker-registry-client/registry"
+	"github.com/nokia/docker-registry-client/registry"
 	"github.com/pkg/errors"
 )
 
@@ -57,7 +57,10 @@ func (c *Client) registry(url string) (*registry.Registry, error) {
 		return r.(*registry.Registry), nil
 	}
 
-	r, err := registry.New(url, "", "")
+	r, err := registry.NewCustom(url, registry.Options{
+		DoInitialPing:    true,
+		DisableBasicAuth: true,
+	})
 	if err != nil {
 		return nil, err
 	}
