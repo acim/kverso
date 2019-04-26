@@ -7,7 +7,6 @@ import (
 
 	"github.com/docker/distribution/reference"
 	"github.com/nokia/docker-registry-client/registry"
-	"github.com/pkg/errors"
 )
 
 // Client ...
@@ -27,29 +26,55 @@ func NewClient() *Client {
 }
 
 // Tags returns slice of available tags.
-func (c *Client) Tags(image string) ([]string, error) {
+func (c *Client) Tags(image string) ([]string, string, error) {
 	info, err := parseImage(image)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 
 	if tags, ok := c.tags.Load(info.registryURL + info.image); ok {
-		return tags.([]string), nil
+		return tags.([]string), info.tag, nil
 	}
 
 	r, err := c.registry(info.registryURL)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed connecting to registry")
+		return nil, "", err
 	}
 
 	tags, err := r.Tags(info.image)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed fetching tags")
+		return nil, "", err
 	}
 
 	c.tags.Store(info.registryURL+info.image, tags)
 
-	return tags, nil
+	return tags, info.tag, nil
+}
+
+// Digest returns digest of the image.
+func (c *Client) Digest(image string) (string, error) {
+	info, err := parseImage(image)
+	if err != nil {
+		return "", err
+	}
+
+	if digest, ok := c.digests.Load(info.registryURL + info.image); ok {
+		return digest.(string), nil
+	}
+
+	r, err := c.registry(info.registryURL)
+	if err != nil {
+		return "", err
+	}
+
+	digest, err := r.ManifestV2Digest(info.image, info.tag)
+	if err != nil {
+		return "", err
+	}
+
+	c.digests.Store(info.registryURL+info.image, string(digest))
+
+	return string(digest), nil
 }
 
 func (c *Client) registry(url string) (*registry.Registry, error) {
@@ -57,10 +82,7 @@ func (c *Client) registry(url string) (*registry.Registry, error) {
 		return r.(*registry.Registry), nil
 	}
 
-	r, err := registry.NewCustom(url, registry.Options{
-		DoInitialPing:    true,
-		DisableBasicAuth: true,
-	})
+	r, err := registry.NewCustom(url, registry.Options{})
 	if err != nil {
 		return nil, err
 	}

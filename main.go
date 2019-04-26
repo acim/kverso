@@ -30,22 +30,38 @@ func handler(c *k8s.Client, r *registry.Client) http.Handler {
 		for _, pod := range pods {
 			w.Write([]byte("Pod name: " + pod.Name + "<br>"))
 			for n, c := range pod.Containers {
-				w.Write([]byte("Container name: " + n + " Image: " + c.Image + " Digest: " + c.Digest + "<br>"))
-				tags, err := r.Tags(c.Image)
+				w.Write([]byte("Container name: " + n + " Image: " + c.Image + " Current digest: " + c.Digest + "<br>"))
+				tags, tag, err := r.Tags(c.Image)
 				if err != nil {
 					w.Write([]byte("Available tags error: " + err.Error() + "<br>"))
 					continue
 				}
-				w.Write([]byte("Available tags: " + strings.Join(tags, ", ") + "<br>"))
+				w.Write([]byte("Current tag: " + tag + " Available tags: " + strings.Join(tags, ", ") + "<br>"))
+				if tag == "latest" {
+					digest, err := r.Digest(c.Image)
+					if err != nil {
+						w.Write([]byte("Remote digest error: " + err.Error() + "<br>"))
+						continue
+					}
+					w.Write([]byte("Remote digest: " + digest + "<br>"))
+				}
 			}
 			for n, c := range pod.InitContainers {
 				w.Write([]byte("Init container name: " + n + " Image: " + c.Image + " Digest: " + c.Digest + "<br>"))
-				tags, err := r.Tags(c.Image)
+				tags, tag, err := r.Tags(c.Image)
 				if err != nil {
 					w.Write([]byte("Available tags error: " + err.Error() + "<br>"))
 					continue
 				}
-				w.Write([]byte("Available tags: " + strings.Join(tags, ", ") + "<br>"))
+				w.Write([]byte("Current tag: " + tag + " Available tags: " + strings.Join(tags, ", ") + "<br>"))
+				if tag == "latest" {
+					digest, err := r.Digest(c.Image)
+					if err != nil {
+						w.Write([]byte("Remote digest error: " + err.Error() + "<br>"))
+						continue
+					}
+					w.Write([]byte("Remote digest: " + digest + "<br>"))
+				}
 			}
 			w.Write([]byte("<br>"))
 		}
