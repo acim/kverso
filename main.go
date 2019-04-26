@@ -3,66 +3,36 @@ package main
 import (
 	"log"
 	"net/http"
-	"strings"
 
-	"github.com/acim/kverso/pkg/registry"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
+	"github.com/acim/kverso/pkg/k8s"
+	// "github.com/acim/kverso/pkg/registry"
 )
 
 func main() {
-	config, err := rest.InClusterConfig()
+	kClient, err := k8s.NewClient()
 	if err != nil {
-		log.Fatal(err)
+		panic(err)
 	}
 
-	client, err := kubernetes.NewForConfig(config)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	http.Handle("/", handler(client))
+	http.Handle("/", handler(kClient))
 	log.Fatal(http.ListenAndServe(":3000", nil))
 }
 
-func handler(c *kubernetes.Clientset) http.Handler {
+func handler(c *k8s.Client) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		list, err := c.CoreV1().Pods("").List(metav1.ListOptions{})
+		w.Header().Add("Content-Type", "text/html")
+		pods, err := c.Pods()
 		if err != nil {
-			log.Fatal(err)
+			w.Write([]byte("Error: " + err.Error()))
+			return
 		}
-
-		w.Header().Set("Content-Type", "text/html")
-		for _, p := range list.Items {
-			w.Write([]byte("Pod: " + p.ObjectMeta.Name + "<br>"))
-			for _, cs := range p.Spec.Containers {
-				w.Write([]byte("Container: " + cs.Name + " Image: " + cs.Image + "<br>"))
-				client, err := registry.NewClient(cs.Image)
-				if err != nil {
-					w.Write([]byte("Error: " + err.Error()))
-					continue
-				}
-				tags, err := client.Tags()
-				if err != nil {
-					w.Write([]byte("Error: " + err.Error()))
-					continue
-				}
-				w.Write([]byte("Available tags: " + strings.Join(tags, ", ") + "<br>"))
+		for _, pod := range pods {
+			w.Write([]byte("Pod name: " + pod.Name + "<br>"))
+			for n, c := range pod.Containers {
+				w.Write([]byte("Container name: " + n + " Image: " + c.Image + " Digest: " + c.Digest + "<br>"))
 			}
-			for _, ics := range p.Spec.InitContainers {
-				w.Write([]byte("Init container: " + ics.Name + " Image: " + ics.Image + "<br>"))
-				client, err := registry.NewClient(ics.Image)
-				if err != nil {
-					w.Write([]byte("Error: " + err.Error()))
-					continue
-				}
-				tags, err := client.Tags()
-				if err != nil {
-					w.Write([]byte("Error: " + err.Error()))
-					continue
-				}
-				w.Write([]byte("Available tags: " + strings.Join(tags, ", ") + "<br>"))
+			for n, c := range pod.InitContainers {
+				w.Write([]byte("Init container name: " + n + " Image: " + c.Image + " Digest: " + c.Digest + "<br>"))
 			}
 			w.Write([]byte("<br>"))
 		}
