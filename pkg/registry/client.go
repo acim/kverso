@@ -1,6 +1,7 @@
 package registry
 
 import (
+	"log"
 	"net/url"
 	"regexp"
 	"strings"
@@ -60,44 +61,61 @@ func (c *Client) FilteredTags(image string) ([]string, string, error) {
 		return nil, "", err
 	}
 
-	t := reDigit.ReplaceAllString(currTag, "\\d")
-	t = reDot.ReplaceAllString(t, "\\.")
-	r, err := regexp.Compile("^" + t + "$")
-	if err != nil {
-		return nil, "", err
-	}
+	// t := reDigit.ReplaceAllString(currTag, "\\d")
+	// t = reDot.ReplaceAllString(t, "\\.")
+	// r, err := regexp.Compile("^" + t + "$")
+	// if err != nil {
+	// 	return nil, "", err
+	// }
 
-	var fTags []string
-	for _, tag := range tags {
-		if r.Match([]byte(tag)) {
-			fTags = append(fTags, tag)
-		}
-	}
+	// var fTags []string
+	// for _, tag := range tags {
+	// 	if r.Match([]byte(tag)) {
+	// 		fTags = append(fTags, tag)
+	// 	}
+	// }
+
+	// currV, err := version.NewVersion(currTag)
+	// if err != nil {
+	// 	var ffTags []string
+	// 	for _, tag := range fTags {
+	// 		if tag > currTag {
+	// 			ffTags = append(ffTags, tag)
+	// 		}
+	// 	}
+	// 	return ffTags, currTag, nil
+	// }
+
+	// var ffTags []string
+	// for _, tag := range fTags {
+	// 	v, err := version.NewVersion(tag)
+	// 	if err != nil {
+	// 		continue
+	// 	}
+	// 	if currV.LessThan(v) {
+	// 		ffTags = append(ffTags, tag)
+	// 	}
+	// }
+
+	// return ffTags, currTag, nil
 
 	currV, err := version.NewVersion(currTag)
 	if err != nil {
-		var ffTags []string
-		for _, tag := range fTags {
-			if tag > currTag {
-				ffTags = append(ffTags, tag)
-			}
-		}
-		return ffTags, currTag, nil
+		log.Println("Error: ", err, " Current tag: ", currTag)
+		return tags, currTag, nil
 	}
-
-	var ffTags []string
-	for _, tag := range fTags {
+	var fTags []string
+	for _, tag := range tags {
 		v, err := version.NewVersion(tag)
 		if err != nil {
+			log.Println("Error: ", err, " Tag: ", tag)
 			continue
 		}
 		if currV.LessThan(v) {
-			ffTags = append(ffTags, tag)
+			fTags = append(fTags, tag)
 		}
 	}
-
-	return ffTags, currTag, nil
-
+	return fTags, currTag, nil
 }
 
 // Digest returns digest of the image.
@@ -177,5 +195,5 @@ type info struct {
 	tag         string
 }
 
-var reDigit = regexp.MustCompile(`\d`)
-var reDot = regexp.MustCompile(`\.`)
+// var reDigit = regexp.MustCompile(`\d`)
+// var reDot = regexp.MustCompile(`\.`)
