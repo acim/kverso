@@ -3,7 +3,6 @@ package registry
 import (
 	"log"
 	"net/url"
-	"regexp"
 	"strings"
 	"sync"
 
