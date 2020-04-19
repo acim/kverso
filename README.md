@@ -2,6 +2,8 @@
 
 Kubernetes image versions manager
 
+[![HitCount](http://hits.dwyl.com/acim/kverso.svg)](http://hits.dwyl.com/acim/kverso)
+
 ## Installation
 
 kubectl apply -f https://raw.githubusercontent.com/acim/kverso/master/deploy/rbac.yaml
